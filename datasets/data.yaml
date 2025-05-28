@@ -1,5 +1,5 @@
-path: C:/Users/gabri/Proyectos/YOLO/sets
-
+#path: C:/Users/gabri/Proyectos/YOLO/datasets
+path: .
 train: train/images
 val: valid/images
 test: test/images
