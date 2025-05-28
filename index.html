@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Subir imágenes de entrada</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      background-color: #f4f4f4;
+    }
+    form {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 400px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    input[type="file"] {
+      display: block;
+      margin-bottom: 15px;
+      width: 100%;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      background-color: #5cb85c;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      width: 100%;
+      font-size: 1em;
+    }
+    #resultado {
+      margin-top: 20px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 1.2em;
+    }
+  </style>
+</head>
+<body>
+
+  <form id="formulario">
+    <h2>Subir imágenes para detección</h2>
+    <label>Imagen Frontal:</label>
+    <input type="file" name="imagen_frontal" accept="image/*" required>
+    <label>Imagen Trasera:</label>
+    <input type="file" name="imagen_trasera" accept="image/*" required>
+    <button type="submit">Enviar</button>
+    <div id="resultado"></div>
+  </form>
+
+  <script>
+    document.getElementById('formulario').addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const formData = new FormData(this);
+      const resultado = document.getElementById('resultado');
+
+      try {
+        const response = await fetch('http://localhost:8001/procesar_entrada/', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          resultado.innerText = `⚠️ Error HTTP: ${response.status}`;
+          resultado.style.color = 'orange';
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.acceso === 1) {
+          resultado.innerText = "✅ Acceso permitido";
+          resultado.style.color = "green";
+        } else if (data.acceso === 0) {
+          resultado.innerText = "❌ Acceso denegado";
+          resultado.style.color = "red";
+        } else {
+          resultado.innerText = "⚠️ Error: " + (data.error || "respuesta inesperada");
+          resultado.style.color = "orange";
+        }
+      } catch (error) {
+        resultado.innerText = "❌ Error de conexión: " + error.message;
+        resultado.style.color = "red";
+      }
+    });
+  </script>
+
+</body>
+</html>
