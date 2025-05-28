@@ -1,66 +1,44 @@
 import os
-# evita el error de OpenMP en Windows
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
+import cv2
 from ultralytics import YOLO
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-from pathlib import Path
 
 def main():
-    # Ajusta rutas si es necesario
-    MODEL_PATH = "runs/detect/placas_s3/weights/best.pt"
-    DATA_YAML  = "sets/data.yaml"
-    SPLIT      = "test"   # 'train', 'val' o 'test'
+    # 1) Ruta a la imagen
+    img_path = os.path.join("assets", "coche.jpeg")
+    img = cv2.imread(img_path)
+    if img is None:
+        raise FileNotFoundError(f"No se encontró la imagen: {img_path}")
 
-    # 1) Carga el modelo entrenado
-    model = YOLO(MODEL_PATH)
+    # 2) Carga tu modelo custom (entrenado) desde la carpeta models/
+    model = YOLO(os.path.join("models", "yolov8_placas.pt"))
 
-    # 2) Evalúa en test (plots=True para que genere y guarde la conf matrix)
-    res = model.val(data=DATA_YAML, split=SPLIT, plots=True)
+    # 3) Ejecuta la predicción (umbral 25%)
+    results = model.predict(source=img, conf=0.25, save=False)
 
-    # 3) Extrae las métricas y conviértelas a float
-    precision = float(res.box.p.item())
-    recall    = float(res.box.r.item())
-    map50     = float(res.box.map50.item())
-    map50_95  = float(res.box.map.item())
+    # 4) Dibuja cajas y muestra información
+    for result in results:
+        for box in result.boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            cls_id = int(box.cls[0])
+            name = model.names[cls_id]
+            conf  = float(box.conf[0])
 
-    print(f"Precision:  {precision:.4f}")
-    print(f"Recall:     {recall:.4f}")
-    print(f"mAP50:      {map50:.4f}")
-    print(f"mAP50-95:   {map50_95:.4f}")
+            print(f"Detectado: {name} en ({x1},{y1})–({x2},{y2}), conf={conf:.2f}")
+            cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(
+                img,
+                f"{name} {conf:.2f}",
+                (x1, y1 - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 0),
+                2
+            )
 
-    # 4) Bar‐chart de métricas
-    names  = ["Precision", "Recall", "mAP50", "mAP50-95"]
-    values = [precision, recall, map50, map50_95]
-    plt.figure(figsize=(8, 4))
-    plt.bar(names, values)
-    plt.ylim(0, 1)
-    plt.title(f"Métricas en split='{SPLIT}'")
-    plt.ylabel("Score")
-    plt.grid(axis='y', linestyle='--', alpha=0.6)
-    plt.tight_layout()
-    plt.savefig("test_metrics.png")
-    plt.show()
-
-    # 5) Carga y muestra la matriz de confusión guardada
-    # res.save_dir es el Path donde Ultraly­tics guardó los plots
-    cm_path = Path(res.save_dir) / "confusion_matrix.png"
-    if cm_path.exists():
-        img = mpimg.imread(cm_path)
-        plt.figure(figsize=(6, 6))
-        plt.imshow(img)
-        plt.axis('off')
-        plt.title("Matriz de Confusión")
-        plt.show()
-    else:
-        print(f"No se encontró la matriz de confusión en {cm_path}")
-
-
-
+    # 5) Muestra la imagen con detecciones
+    cv2.imshow("Detecciones YOLOv8", img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    # necesario en Windows para spawn multiprocessing
-    import multiprocessing
-    multiprocessing.freeze_support()
     main()

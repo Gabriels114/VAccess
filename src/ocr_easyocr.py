@@ -1,37 +1,48 @@
 # ocr_easyocr.py
+# src/ocr_easyocr.py
 
-import easyocr
+import os
 import cv2
+import torch
+import easyocr
 
-# Inicializa el lector de EasyOCR una sola vez
-reader = easyocr.Reader(['en'], gpu=True)  # usa gpu=True si tienes CUDA, si no usa False
+# Detectar si hay GPU disponible
+_GPU = torch.cuda.is_available()
 
-def ocr_from_image(image):
+# Inicializar el lector EasyOCR solo una vez, con soporte para español e inglés
+_reader = easyocr.Reader(['es', 'en'], gpu=_GPU)
+
+def perform_ocr(image):
     """
-    Aplica OCR a una imagen preprocesada de una placa vehicular.
+    Aplica OCR a una imagen preprocesada (binaria o en escala de grises).
 
-    :param image: Imagen preprocesada (binaria o en escala de grises)
-    :return: Texto reconocido (str)
+    Args:
+        image (np.ndarray): Imagen preprocesada (escala de grises o BGR).
+
+    Returns:
+        str: Texto reconocido (la línea con mayor confianza).
     """
-    # EasyOCR requiere imagen en formato RGB o escala de grises
-    if len(image.shape) == 3 and image.shape[2] == 3:
+    # Si viene en BGR, convertimos a escala de grises
+    if image.ndim == 3 and image.shape[2] == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    results = reader.readtext(image)
+    # Ejecutar OCR
+    results = _reader.readtext(image, detail=1, paragraph=False)
 
-    # Extrae el texto más probable con mayor confianza
-    text_detected = ""
-    highest_confidence = 0
-    for (bbox, text, conf) in results:
-        if conf > highest_confidence:
-            highest_confidence = conf
-            text_detected = text
+    # Buscar el texto con mayor confianza
+    best_text = ""
+    best_conf = 0.0
+    for bbox, text, conf in results:
+        if conf > best_conf:
+            best_conf = conf
+            best_text = text
 
-    return text_detected.strip()
+    return best_text.strip()
 
-# Para pruebas rápidas
+
 if __name__ == "__main__":
-    img_path = "placa_binaria.jpg"
-    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-    texto = ocr_from_image(img)
+    # Prueba rápida (asegúrate de tener este archivo en la raíz del proyecto)
+    test_img_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'coche.jpeg')
+    img = cv2.imread(test_img_path, cv2.IMREAD_GRAYSCALE)
+    texto = perform_ocr(img)
     print("Texto reconocido:", texto)

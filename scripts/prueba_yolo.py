@@ -1,42 +1,44 @@
-from ultralytics import YOLO
+import os
 import cv2
+from ultralytics import YOLO
 
-# 1) Ruta a la imagen que quieres analizar
-imagen_path = "coche.jpeg"
-img = cv2.imread(imagen_path)
-if img is None:
-    raise FileNotFoundError(f"No se encontró la imagen: {imagen_path}")
+def main():
+    # 1) Ruta a la imagen
+    img_path = os.path.join("assets", "coche.jpeg")
+    img = cv2.imread(img_path)
+    if img is None:
+        raise FileNotFoundError(f"No se encontró la imagen: {img_path}")
 
-# 2) Carga tu modelo
-#    - Si quieres probar con el nano pre-entrenado en COCO:
-#model = YOLO("yolov8n.pt")
+    # 2) Carga tu modelo custom (entrenado) desde la carpeta models/
+    model = YOLO(os.path.join("models", "yolov8_placas.pt"))
 
-#    - O carga tu modelo custom entrenado para placas:
-model = YOLO("runs/detect/placas_s3/weights/best.pt")
+    # 3) Ejecuta la predicción (umbral 25%)
+    results = model.predict(source=img, conf=0.25, save=False)
 
-# 3) Ejecuta la predicción
-#    conf=0.25 → umbral mínimo de confianza al 25%
-results = model.predict(source=img, conf=0.25, save=False)
+    # 4) Dibuja cajas y muestra información
+    for result in results:
+        for box in result.boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            cls_id = int(box.cls[0])
+            name = model.names[cls_id]
+            conf  = float(box.conf[0])
 
-# 4) Recorre las detecciones y dibuja las cajas
-for result in results:               # Ultraly­tics devuelve una lista de resultados (uno por entrada)
-    for box in result.boxes:         # result.boxes es la lista de cajas detectadas
-        # Coordenadas xyxy
-        x1, y1, x2, y2 = map(int, box.xyxy[0])
-        clase = int(box.cls[0])      # índice de la clase
-        nombre_clase = model.names[clase]
+            print(f"Detectado: {name} en ({x1},{y1})–({x2},{y2}), conf={conf:.2f}")
+            cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(
+                img,
+                f"{name} {conf:.2f}",
+                (x1, y1 - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 0),
+                2
+            )
 
-        # Imprime por consola
-        print(f"Detectado: {nombre_clase} en ({x1},{y1})–({x2},{y2}), conf={box.conf[0]:.2f}")
+    # 5) Muestra la imagen con detecciones
+    cv2.imshow("Detecciones YOLOv8", img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-        # Dibuja rectángulo y etiqueta
-        cv2.rectangle(img, (x1+5, y1+2), (x2, y2), (0, 255, 0), 2)
-        cv2.putText(
-            img, nombre_clase, (x1, y1 - 10),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2
-        )
-
-# 5) Muestra la imagen resultante en ventana OpenCV
-cv2.imshow("Detecciones YOLOv8", img)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    main()
